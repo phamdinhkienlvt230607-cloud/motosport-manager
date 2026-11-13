@@ -7,6 +7,31 @@ const allowedSslModes = new Set([
   'verify-full',
 ]);
 
+const jwtSecretPlaceholders = new Set([
+  'changeme',
+  'yoursecretkey',
+  'replacethissecret',
+  'replacewitharandomsecretatleast32characters',
+  'yoursecrethere',
+  'secret',
+  'password',
+]);
+
+function assertStrongJwtSecret(secret: string): void {
+  const placeholderKey = secret.toLowerCase().replace(/[\s_-]+/g, '');
+  if (jwtSecretPlaceholders.has(placeholderKey)) {
+    throw new Error('JWT_SECRET must not be a placeholder value.');
+  }
+
+  if (secret.length < 32) {
+    throw new Error('JWT_SECRET must contain at least 32 characters.');
+  }
+
+  if (new Set(Array.from(secret)).size < 12) {
+    throw new Error('JWT_SECRET must contain at least 12 distinct characters.');
+  }
+}
+
 function parseBoolean(
   value: unknown,
   name: string,
@@ -103,6 +128,7 @@ function parseOrigins(value: unknown, nodeEnv: string): string[] {
 
 export function validateEnvironment(environment: Environment): Environment {
   const nodeEnv = String(environment.NODE_ENV ?? 'development');
+  const corsOrigins = parseOrigins(environment.CORS_ORIGINS, nodeEnv);
   const databaseEnabled = parseBoolean(
     environment.DATABASE_ENABLED,
     'DATABASE_ENABLED',
@@ -136,6 +162,17 @@ export function validateEnvironment(environment: Environment): Environment {
     2000,
     100,
     10000,
+  );
+  const jwtSecret =
+    typeof environment.JWT_SECRET === 'string'
+      ? environment.JWT_SECRET.trim()
+      : undefined;
+  const jwtExpiresInSeconds = parseInteger(
+    environment.JWT_EXPIRES_IN_SECONDS,
+    'JWT_EXPIRES_IN_SECONDS',
+    900,
+    60,
+    86400,
   );
 
   if (!allowedSslModes.has(sslMode)) {
@@ -185,6 +222,15 @@ export function validateEnvironment(environment: Environment): Environment {
     }
   }
 
+  if (databaseEnabled || nodeEnv === 'production') {
+    if (!jwtSecret) {
+      throw new Error(
+        'JWT_SECRET is required when DATABASE_ENABLED=true or NODE_ENV=production.',
+      );
+    }
+    assertStrongJwtSecret(jwtSecret);
+  }
+
   return {
     ...environment,
     NODE_ENV: nodeEnv,
@@ -195,6 +241,8 @@ export function validateEnvironment(environment: Environment): Environment {
     PGSSL_CA_FILE: caFile,
     DB_RETRY_ATTEMPTS: retryAttempts,
     DB_RETRY_DELAY_MS: retryDelay,
-    CORS_ORIGINS: parseOrigins(environment.CORS_ORIGINS, nodeEnv),
+    JWT_SECRET: jwtSecret,
+    JWT_EXPIRES_IN_SECONDS: jwtExpiresInSeconds,
+    CORS_ORIGINS: corsOrigins,
   };
 }

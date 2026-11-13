@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { X509Certificate } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { AuthModule } from './auth/auth.module.js';
 import { validateEnvironment } from './config/env.validation.js';
 import { createPostgresSslOptions } from './config/postgres-ssl.js';
 import { HealthModule } from './health/health.module.js';
@@ -67,6 +68,7 @@ import { HealthModule } from './health/health.module.js';
         };
       },
     }),
+    AuthModule,
     HealthModule,
   ],
 })
