@@ -1,14 +1,9 @@
-import type { AccountStatus, AuthUser, NewAccountInput, Role } from './authTypes';
+import type { AccountStatus, MockAccount, NewAccountInput, Role } from './authTypes';
 
-interface StoredAccount extends AuthUser {
+interface StoredAccount extends MockAccount {
   passwordDigest: string;
 }
 
-type LoginResult =
-  | { ok: true; user: AuthUser; accessToken: string }
-  | { ok: false; reason: 'invalid-credentials' | 'account-locked' };
-
-const demoPassword = 'Moto@2026';
 const demoAccounts: Omit<StoredAccount, 'passwordDigest'>[] = [
   { id: 'user-admin', username: 'admin', name: 'Nguyễn An', role: 'admin', status: 'active' },
   { id: 'user-manager', username: 'manager', name: 'Trần Minh', role: 'manager', status: 'active' },
@@ -28,12 +23,12 @@ async function digestPassword(password: string) {
 function getAccountStore() {
   accountStore ??= Promise.all(demoAccounts.map(async (account) => ({
     ...account,
-    passwordDigest: await digestPassword(demoPassword),
+    passwordDigest: await digestPassword(crypto.randomUUID()),
   })));
   return accountStore;
 }
 
-function publicAccount(account: StoredAccount): AuthUser {
+function publicAccount(account: StoredAccount): MockAccount {
   return {
     id: account.id,
     username: account.username,
@@ -45,15 +40,6 @@ function publicAccount(account: StoredAccount): AuthUser {
 
 export async function listMockAccounts() {
   return (await getAccountStore()).map(publicAccount);
-}
-
-export async function signInMock(username: string, password: string): Promise<LoginResult> {
-  const accounts = await getAccountStore();
-  const account = accounts.find((item) => item.username.toLowerCase() === username.trim().toLowerCase());
-  if (!account) return { ok: false, reason: 'invalid-credentials' };
-  if (account.status === 'locked') return { ok: false, reason: 'account-locked' };
-  if (account.passwordDigest !== await digestPassword(password)) return { ok: false, reason: 'invalid-credentials' };
-  return { ok: true, user: publicAccount(account), accessToken: `mock.${crypto.randomUUID()}` };
 }
 
 export async function createMockAccount(input: NewAccountInput, password: string) {
@@ -71,7 +57,7 @@ export async function createMockAccount(input: NewAccountInput, password: string
   });
 }
 
-export async function updateMockAccount(id: string, input: Pick<AuthUser, 'username' | 'name' | 'role'>, actorId: string) {
+export async function updateMockAccount(id: string, input: Pick<MockAccount, 'username' | 'name' | 'role'>, actorId: string) {
   const accounts = await getAccountStore();
   const account = accounts.find((item) => item.id === id);
   if (!account) throw new Error('Không tìm thấy tài khoản.');

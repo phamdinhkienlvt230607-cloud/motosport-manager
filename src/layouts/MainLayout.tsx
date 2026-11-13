@@ -34,6 +34,10 @@ export function MainLayout() {
     navigate(`/cars?q=${encodeURIComponent(query)}`);
   }
 
+  function handleLogout() {
+    void logout().then(() => navigate('/login', { replace: true }));
+  }
+
   return <div className={`app-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
     {mobileOpen && <button className="mobile-scrim" aria-label="Đóng menu" onClick={() => setMobileOpen(false)} />}
     <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
@@ -44,7 +48,7 @@ export function MainLayout() {
       <button className="collapse-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}>{collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}</button>
     </aside>
     <div className="main-column">
-      <header className="topbar"><div className="topbar-title"><button className="mobile-menu icon-button" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><Menu size={19} /></button><div><span className="breadcrumb">MotoSport <span>/</span> {activePage?.label}</span><strong>{activePage?.label}</strong></div></div><div className="topbar-tools"><form className="global-search" onSubmit={search}><Search size={16} /><input placeholder="Tìm xe, mã xe..." aria-label="Tìm xe" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></form><button className="notification-button icon-button" aria-label="Thông báo"><Bell size={18} /><i /></button><span className="topbar-divider" /><div className="user-profile"><div className="avatar">{user?.name.slice(0, 1) ?? 'NV'}</div><div><strong>{user?.name}</strong><span>{user ? roleLabels[user.role] : ''}</span></div><button className="icon-button logout-button" onClick={() => { logout(); navigate('/login', { replace: true }); }} aria-label="Đăng xuất" title="Đăng xuất"><LogOut size={16} /></button></div></div></header>
+      <header className="topbar"><div className="topbar-title"><button className="mobile-menu icon-button" onClick={() => setMobileOpen(true)} aria-label="Mở menu"><Menu size={19} /></button><div><span className="breadcrumb">MotoSport <span>/</span> {activePage?.label}</span><strong>{activePage?.label}</strong></div></div><div className="topbar-tools"><form className="global-search" onSubmit={search}><Search size={16} /><input placeholder="Tìm xe, mã xe..." aria-label="Tìm xe" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></form><button className="notification-button icon-button" aria-label="Thông báo"><Bell size={18} /><i /></button><span className="topbar-divider" /><div className="user-profile"><div className="avatar">{user?.displayName.slice(0, 1) ?? 'NV'}</div><div><strong>{user?.displayName}</strong><span>{user ? user.roles.map((role) => roleLabels[role] ?? role).join(', ') || 'Chưa phân quyền' : ''}</span></div><button className="icon-button logout-button" onClick={handleLogout} aria-label="Đăng xuất" title="Đăng xuất"><LogOut size={16} /></button></div></div></header>
       <main className="page-content"><Outlet /></main>
       <footer className="app-footer"><span>© 2026 MotoSport Manager</span><span><i className="status-light" /> Dữ liệu được lưu trên thiết bị này</span></footer>
     </div>

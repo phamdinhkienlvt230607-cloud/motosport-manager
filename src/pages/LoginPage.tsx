@@ -27,9 +27,7 @@ export function LoginPage() {
     try {
       const result = await login(username, password);
       if (!result.ok) {
-        setError(result.reason === 'account-locked'
-          ? 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.'
-          : 'Tên đăng nhập hoặc mật khẩu không chính xác.');
+        setError('Tên đăng nhập hoặc mật khẩu không chính xác.');
         return;
       }
       const from = (location.state as LoginLocationState | null)?.from?.pathname;
@@ -64,7 +62,7 @@ export function LoginPage() {
           {error && <div className="login-error" role="alert">{error}</div>}
           <button className="login-submit" type="submit" disabled={pending || !ready}>{pending ? <><span className="login-spinner" /> Đang xác thực...</> : <>Đăng nhập <ArrowRight size={17} /></>}</button>
         </form>
-        <div className="demo-login-note"><strong>Tài khoản demo</strong><span>admin, manager, sales, warehouse, accountant</span><small>Mật khẩu: Moto@2026 · Mock frontend, không dùng dữ liệu thật</small></div>
+        <div className="demo-login-note"><strong>Tài khoản nhân viên</strong><span>Đăng nhập bằng tài khoản được quản trị viên cấp.</span><small>Liên hệ quản trị viên nếu bạn chưa có thông tin đăng nhập.</small></div>
         <div className="login-footer"><span>Phiên làm việc an toàn</span><span>{roleLabels.admin} · MotoSport Manager</span></div>
       </div>
     </section>

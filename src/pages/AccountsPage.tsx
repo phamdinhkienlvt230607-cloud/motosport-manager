@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { KeyRound, LockKeyhole, Pencil, Plus, ShieldCheck, UnlockKeyhole, UserRound } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
-import { roles, type AuthUser, type NewAccountInput, type Role } from '../auth/authTypes';
+import { roles, type MockAccount, type NewAccountInput, type Role } from '../auth/authTypes';
 import { roleLabels } from '../auth/permissions';
 
-type AccountDialog = { kind: 'create' } | { kind: 'edit'; account: AuthUser } | { kind: 'reset'; account: AuthUser };
+type AccountDialog = { kind: 'create' } | { kind: 'edit'; account: MockAccount } | { kind: 'reset'; account: MockAccount };
 
 export function AccountsPage() {
   const { user, accounts, createAccount, updateAccount, setAccountStatus, resetPassword } = useAuth();
@@ -42,7 +42,7 @@ export function AccountsPage() {
     }
   }
 
-  async function toggleStatus(account: AuthUser) {
+  async function toggleStatus(account: MockAccount) {
     setError('');
     setNotice('');
     try {

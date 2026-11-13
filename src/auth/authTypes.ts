@@ -18,6 +18,16 @@ export type Permission =
 export interface AuthUser {
   id: string;
   username: string;
+  displayName: string;
+  employeeId: string | null;
+  status: 'active';
+  roles: string[];
+  permissions: Permission[];
+}
+
+export interface MockAccount {
+  id: string;
+  username: string;
   name: string;
   role: Role;
   status: AccountStatus;
