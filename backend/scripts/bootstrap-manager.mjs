@@ -21,6 +21,8 @@ const safeErrorCodes = new Set([
   '08006',
   '08007',
   '08P01',
+  '25001',
+  '25P02',
   '23503',
   '23505',
   '23514',
@@ -60,14 +62,130 @@ const safeErrorCodes = new Set([
   'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
 ]);
 
+const dnsErrorCodes = new Set(['EAI_AGAIN', 'ENOTFOUND']);
+const tcpErrorCodes = new Set([
+  'EADDRNOTAVAIL',
+  'ECONNABORTED',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EPIPE',
+  'ETIMEDOUT',
+]);
+const postgresConnectionCodes = new Set([
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+  '08007',
+  '08P01',
+]);
+const postgresAuthenticationCodes = new Set(['28000', '28P01']);
+const transactionSqlStates = new Set(['25001', '25P02', '40001', '40P01']);
+const transactionStages = new Set([
+  'advisory_lock',
+  'begin_transaction',
+  'set_transaction_isolation',
+]);
+const tlsErrorCodes = new Set([
+  'CERT_HAS_EXPIRED',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_OSSL_ASN1_HEADER_TOO_LONG',
+  'ERR_OSSL_PEM_NO_START_LINE',
+  'ERR_SSL_WRONG_VERSION_NUMBER',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+]);
+
+function getErrorChain(error) {
+  const chain = [];
+  const seen = new Set();
+  let current = error;
+
+  while (
+    current &&
+    typeof current === 'object' &&
+    chain.length < 4 &&
+    !seen.has(current)
+  ) {
+    seen.add(current);
+    chain.push(current);
+    current = current.cause;
+  }
+
+  return chain;
+}
+
 function getSafeErrorCode(error) {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? error.code
-      : undefined;
-  return typeof code === 'string' && safeErrorCodes.has(code)
-    ? code
-    : 'UNCLASSIFIED';
+  for (const item of getErrorChain(error)) {
+    if (typeof item.code === 'string' && safeErrorCodes.has(item.code)) {
+      return item.code;
+    }
+  }
+  return 'UNCLASSIFIED';
+}
+
+function classifyError(error, stage) {
+  const codes = getErrorChain(error)
+    .map((item) => item.code)
+    .filter((code) => typeof code === 'string');
+
+  const tlsCode = codes.find(
+    (code) =>
+      tlsErrorCodes.has(code) ||
+      code.startsWith('ERR_SSL_') ||
+      code.startsWith('ERR_TLS_'),
+  );
+  if (tlsCode) {
+    return {
+      category: 'tls',
+      code: safeErrorCodes.has(tlsCode) ? tlsCode : 'TLS_ERROR',
+    };
+  }
+
+  const dnsCode = codes.find((code) => dnsErrorCodes.has(code));
+  if (dnsCode) return { category: 'dns', code: dnsCode };
+
+  const tcpCode = codes.find((code) => tcpErrorCodes.has(code));
+  if (tcpCode) return { category: 'tcp', code: tcpCode };
+
+  const postgresConnectionCode = codes.find((code) =>
+    postgresConnectionCodes.has(code),
+  );
+  if (postgresConnectionCode) {
+    return {
+      category: 'postgres_connection',
+      code: postgresConnectionCode,
+    };
+  }
+
+  const authCode = codes.find((code) =>
+    postgresAuthenticationCodes.has(code),
+  );
+  if (authCode) return { category: 'postgres_auth', code: authCode };
+
+  const transactionCode = codes.find((code) =>
+    transactionSqlStates.has(code),
+  );
+  if (transactionCode || transactionStages.has(stage)) {
+    return {
+      category: 'transaction',
+      code: transactionCode ?? getSafeErrorCode(error),
+    };
+  }
+
+  if (stage === 'load_ca') {
+    return { category: 'tls_setup', code: getSafeErrorCode(error) };
+  }
+
+  return {
+    category: stage === 'client_connect' ? 'connection_other' : 'database_other',
+    code: getSafeErrorCode(error),
+  };
 }
 
 export function assertInteractiveInput(input = stdin) {
@@ -262,14 +380,20 @@ async function main() {
     stage = 'load_ca';
     client = createClient(connection);
 
-    stage = 'connect';
+    stage = 'client_connect';
     await client.connect();
+
+    stage = 'advisory_lock';
     await client.query(
       'SELECT pg_advisory_lock($1::bigint)',
       ['740182601'],
     );
+
+    stage = 'begin_transaction';
     await client.query('BEGIN');
     transactionOpen = true;
+
+    stage = 'set_transaction_isolation';
     await client.query('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
 
     stage = 'check_privileges';
@@ -327,14 +451,16 @@ async function main() {
     await client.query('COMMIT');
     transactionOpen = false;
   } catch (error) {
-    failure = { stage, code: getSafeErrorCode(error) };
+    failure = { stage, error, cleanupErrors: [] };
   } finally {
     if (transactionOpen && client) {
       try {
         await client.query('ROLLBACK');
       } catch (error) {
         if (!failure) {
-          failure = { stage: 'cleanup', code: getSafeErrorCode(error) };
+          failure = { stage: 'cleanup', error, cleanupErrors: [] };
+        } else {
+          failure.cleanupErrors.push({ stage: 'rollback', error });
         }
       }
     }
@@ -344,16 +470,28 @@ async function main() {
         await client.end();
       } catch (error) {
         if (!failure) {
-          failure = { stage: 'cleanup', code: getSafeErrorCode(error) };
+          failure = { stage: 'cleanup', error, cleanupErrors: [] };
+        } else {
+          failure.cleanupErrors.push({ stage: 'client_end', error });
         }
       }
     }
   }
 
   if (failure) {
+    const diagnostic = classifyError(failure.error, failure.stage);
     console.error(
-      `Manager bootstrap stopped: stage=${failure.stage} code=${failure.code}`,
+      `Manager bootstrap stopped: stage=${failure.stage} category=${diagnostic.category} code=${diagnostic.code}`,
     );
+    for (const cleanupError of failure.cleanupErrors) {
+      const cleanupDiagnostic = classifyError(
+        cleanupError.error,
+        cleanupError.stage,
+      );
+      console.error(
+        `Manager bootstrap cleanup failed: stage=${cleanupError.stage} category=${cleanupDiagnostic.category} code=${cleanupDiagnostic.code}`,
+      );
+    }
     process.exitCode = 1;
     return;
   }
