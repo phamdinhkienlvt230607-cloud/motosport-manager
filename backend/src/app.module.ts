@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { AuthModule } from './auth/auth.module.js';
 import { validateEnvironment } from './config/env.validation.js';
 import { createPostgresSslOptions } from './config/postgres-ssl.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { HealthModule } from './health/health.module.js';
 
 @Module({
@@ -69,6 +70,7 @@ import { HealthModule } from './health/health.module.js';
       },
     }),
     AuthModule,
+    DashboardModule,
     HealthModule,
   ],
 })
