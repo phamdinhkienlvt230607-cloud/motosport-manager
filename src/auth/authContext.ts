@@ -12,6 +12,7 @@ export type LoginResult =
 
 export interface AuthContextValue {
   user: AuthUser | null;
+  accessToken: string | null;
   accounts: MockAccount[];
   ready: boolean;
   login: (username: string, password: string) => Promise<LoginResult>;

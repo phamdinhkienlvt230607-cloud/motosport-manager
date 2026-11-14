@@ -136,6 +136,9 @@ CREATE INDEX vehicles_brand_idx ON vehicles (brand_id, is_active);
 CREATE INDEX vehicles_category_idx ON vehicles (category_id, is_active);
 CREATE INDEX vehicles_name_idx ON vehicles (name);
 CREATE INDEX vehicles_low_stock_idx ON vehicles (stock_quantity) WHERE is_active;
+CREATE UNIQUE INDEX vehicles_image_url_unique_idx
+  ON vehicles (btrim(image_url))
+  WHERE image_url IS NOT NULL AND btrim(image_url) <> '';
 
 CREATE TABLE customers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

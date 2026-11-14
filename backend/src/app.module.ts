@@ -8,6 +8,7 @@ import { validateEnvironment } from './config/env.validation.js';
 import { createPostgresSslOptions } from './config/postgres-ssl.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { HealthModule } from './health/health.module.js';
+import { VehiclesModule } from './vehicles/vehicles.module.js';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { HealthModule } from './health/health.module.js';
     AuthModule,
     DashboardModule,
     HealthModule,
+    VehiclesModule,
   ],
 })
 export class AppModule {}

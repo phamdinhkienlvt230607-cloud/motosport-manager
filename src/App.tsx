@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { StoreProvider } from './data/Store';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider } from './auth/AuthContext.tsx';
 import { RequireAuth, RequirePermission } from './auth/RouteGuards';
 import { MainLayout } from './layouts/MainLayout';
 import { Dashboard } from './pages/Dashboard';

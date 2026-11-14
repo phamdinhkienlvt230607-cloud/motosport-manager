@@ -213,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return <AuthContext.Provider value={{
-    user, accounts, ready, login, logout,
+    user, accessToken: session?.accessToken ?? null, accounts, ready, login, logout,
     createAccount, updateAccount,
     setAccountStatus: changeAccountStatus,
     resetPassword: changePassword,

@@ -17,9 +17,20 @@ Migration này dùng `CREATE TYPE` và được thiết kế để chạy một 
 - `employees` lưu hồ sơ nhân viên nghiệp vụ. `users` là tài khoản đăng nhập và có thể liên kết một-một tới nhân viên.
 - `roles`, `permissions`, `user_roles`, `role_permissions` tạo RBAC nhiều-nhiều; permission code trùng với frontend hiện tại.
 - `vehicles` tham chiếu hãng và danh mục; số khung/số máy có unique constraint khi có giá trị.
+- `vehicles.image_url` lưu URL ảnh cho đúng một xe; migration `database/migrations/20261114_unique_vehicle_image_url.sql` từ chối chạy nếu phát hiện URL trùng và tạo unique index sau khi dữ liệu được kiểm tra.
 - `import_receipts` và `sales_invoices` là chứng từ đầu; các bảng `*_details` lưu dòng xe và snapshot giá.
 - `inventory_movements` ghi sổ phát sinh tồn theo từng xe. `vehicles.stock_quantity` là số dư đọc nhanh, cần được cập nhật nguyên tử cùng movement.
 - `audit_logs` lưu dấu vết thao tác quan trọng, nhất là đăng nhập, gán role, khóa/mở tài khoản và sửa chứng từ.
+
+Trước khi áp dụng migration trên database đang có dữ liệu, có thể kiểm tra URL trùng bằng truy vấn chỉ đọc:
+
+```sql
+SELECT btrim(image_url) AS image_url, COUNT(*) AS vehicle_count, ARRAY_AGG(id) AS vehicle_ids
+FROM public.vehicles
+WHERE image_url IS NOT NULL AND btrim(image_url) <> ''
+GROUP BY btrim(image_url)
+HAVING COUNT(*) > 1;
+```
 
 ## Ánh xạ model frontend sang SQL
 
